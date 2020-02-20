@@ -45,7 +45,7 @@ def load_model(maleFile, femaleFile):
 if __name__ == "__main__":
     model, maxlen, chars, char_indices = load_model('male.txt', 'female.txt')
     onnx_model = keras2onnx.convert_keras(model, model.name)
-    print(111)
+    keras2onnx.save_model(onnx_model, 'model.onnx') 
     """
     while True:
         print("Enter any name:")
