@@ -50,9 +50,9 @@ def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
 
     x= keras.layers.Lambda(_transform,
                            output_shape=stn_input_output_shape)([x, localization_net(x)])
-    # x = keras.layers.Reshape(target_shape=(width // pool_size**2,
-    #                                        (height // pool_size ** 2) * 512),
-    #                         name='reshape')(x)
+    x = keras.layers.Reshape(target_shape=(width // pool_size**2,
+                                           (height // pool_size ** 2) * 512),
+                            name='reshape')(x)
     # x = keras.layers.Dense(4)(x)
     x = keras.models.Model(inputs=inputs, outputs=x)
     return x
@@ -64,9 +64,10 @@ if __name__ == '__main__':
     model = build_model(1,31, 200, 1, 7, 2, 0.1, 2, 2)
     # model.summary()
     onnx_model = keras2onnx.convert_keras(model, model.name)
-
+    print(dir(onnx_model))
+    # print(onnx_model.graph)
     keras2onnx.save_model(onnx_model, 'model.onnx')
 
     print('ocr2onnx DONE')
 
-    # os.system('./onnx2trt model.onnx -o model.trt -d 16 -b 4')
+    # os.system('./onnx2trt model.onnx -o model.trt -d 16 -b 1')

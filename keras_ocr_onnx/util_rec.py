@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 def _repeat(x, num_repeats):
     ones = tf.ones((1, num_repeats), dtype='int32')
@@ -7,8 +8,12 @@ def _repeat(x, num_repeats):
     return tf.reshape(x, [-1])
 
 def _meshgrid(height, width):
-    x_linspace = tf.linspace(-1., 1., width)
-    y_linspace = tf.linspace(-1., 1., height)
+    x_linspace = np.linspace(-1., 1., width).astype(np.float32)
+    y_linspace = np.linspace(-1., 1., height).astype(np.float32)
+    x_linspace = tf.convert_to_tensor(x_linspace)
+    y_linspace = tf.convert_to_tensor(y_linspace)
+    # x_linspace = tf.linspace(-1., 1., width)
+    # y_linspace = tf.linspace(-1., 1., height)
     x_coordinates, y_coordinates = tf.meshgrid(x_linspace, y_linspace)
     x_coordinates = tf.reshape(x_coordinates, shape=(1, -1))
     y_coordinates = tf.reshape(y_coordinates, shape=(1, -1))
@@ -96,12 +101,14 @@ def _transform(inputs):
     area_b = tf.expand_dims(((x1 - x) * (y - y0)), 1)
     area_c = tf.expand_dims(((x - x0) * (y1 - y)), 1)
     area_d = tf.expand_dims(((x - x0) * (y - y0)), 1)
-    transformed_image = tf.add_n([
-        area_a * pixel_values_a, area_b * pixel_values_b, area_c * pixel_values_c,
-        area_d * pixel_values_d
-    ])
+    # transformed_image = tf.add_n([
+    #     area_a * pixel_values_a, area_b * pixel_values_b, area_c * pixel_values_c,
+    #     area_d * pixel_values_d
+    # ])
+    transformed_image = area_a*pixel_values_a + area_b * pixel_values_b
+    transformed_image += area_c *pixel_values_c
+    transformed_image += area_d*pixel_values_d
     # Finished interpolation
 
-    transformed_image = tf.reshape(transformed_image,
-                                   shape=(batch_size, output_height, output_width, num_channels))
+    transformed_image = tf.reshape(transformed_image, shape=(batch_size, output_height, output_width, num_channels))
     return transformed_image
