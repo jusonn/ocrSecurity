@@ -2,9 +2,11 @@ import tensorflow as tf
 import numpy as np
 
 def _repeat(x, num_repeats):
-    ones = tf.ones((1, num_repeats), dtype='int32')
+    ones = tf.ones((1, num_repeats), dtype='float32')
     x = tf.reshape(x, shape=(-1, 1))
+    x = tf.cast(x, 'float32')
     x = tf.matmul(x, ones)
+    x = tf.cast(x, 'int32')
     return tf.reshape(x, [-1])
 
 def _meshgrid(height, width):

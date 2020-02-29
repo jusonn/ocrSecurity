@@ -17,9 +17,23 @@ from util_rec import _transform
     'stn': True,
 """
 
+def CTCDecoder():
+    def decoder(y_pred):
+        input_shape = tf.keras.backend.shape(y_pred)
+        input_length = tf.ones(shape=input_shape[0]) * tf.keras.backend.cast(
+            input_shape[1], 'float32')
+        unpadded = tf.keras.backend.ctc_decode(y_pred, input_length)[0][0]
+        unpadded_shape = tf.keras.backend.shape(unpadded)
+        padded = tf.pad(unpadded,
+                        paddings=[[0, 0], [0, input_shape[1] - unpadded_shape[1]]],
+                        constant_values=-1)
+        return padded
+
+    return tf.keras.layers.Lambda(decoder, name='decode')
+
 def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
                 rnn_steps_to_discard, pool_size, stn=True):
-    inputs = keras.layers.Input((height, width, 3 if color else 1), batch_size=1)
+    inputs = keras.layers.Input((height, width, 3 if color else 1), batch_size=2)
     x = keras.layers.Permute((2, 1, 3))(inputs)
     # x = keras.layers.Lambda(lambda x: x[:, :, ::-1])(x)
     # x = x[..., ::-1]
@@ -48,26 +62,52 @@ def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
     ])(locnet_y)
     localization_net = keras.models.Model(inputs=stn_input_layer, outputs=locnet_y)
 
+    # stn 끄기
     x= keras.layers.Lambda(_transform,
                            output_shape=stn_input_output_shape)([x, localization_net(x)])
     x = keras.layers.Reshape(target_shape=(width // pool_size**2,
                                            (height // pool_size ** 2) * 512),
                             name='reshape')(x)
-    # x = keras.layers.Dense(4)(x)
-    x = keras.models.Model(inputs=inputs, outputs=x)
-    return x
+    x = keras.layers.Dense(128, activation='relu', name='fc_9')(x)
+
+    rnn_1_forward = keras.layers.LSTM(128, kernel_initializer='he_normal', return_sequences=True, name='lstm_10')(x)
+    rnn_1_back = keras.layers.LSTM(128, kernel_initializer='he_normal', go_backwards=True, return_sequences=True, name='lstm_10_back')(x)
+    rnn_1_add = keras.layers.Add()([rnn_1_forward, rnn_1_back])
+    rnn_2_forward = keras.layers.LSTM(128,
+                                      kernel_initializer="he_normal",
+                                      return_sequences=True,
+                                      name='lstm_11')(rnn_1_add)
+    rnn_2_back = keras.layers.LSTM(128,
+                                   kernel_initializer="he_normal",
+                                   go_backwards=True,
+                                   return_sequences=True,
+                                   name='lstm_11_back')(rnn_1_add)
+    x = keras.layers.Concatenate()([rnn_2_forward, rnn_2_back])
+    backbone = keras.models.Model(inputs=inputs, outputs=x)
+    x = keras.layers.Dropout(0.2, name='dropout')(x)
+    x = keras.layers.Dense(28+1, kernel_initializer='he_normal', activation='softmax', name='fc_12')(x)
+    x = keras.layers.Lambda(lambda x: x[:, 2:])(x)
+    model = keras.models.Model(inputs=inputs, outputs=x)
+    prediction_model = keras.models.Model(inputs=inputs, outputs=CTCDecoder()(model.output))
+
+    return backbone, model, prediction_model
 
 
 if __name__ == '__main__':
     import os
 
-    model = build_model(1,31, 200, 1, 7, 2, 0.1, 2, 2)
+    backbone, model, prediction_model = build_model(1,200, 200, 1, 7, 2, 0.1, 2, 2)
     # model.summary()
+    onnx_backbone = keras2onnx.convert_keras(backbone, backbone.name)
     onnx_model = keras2onnx.convert_keras(model, model.name)
-    print(dir(onnx_model))
+    # prediction_model = keras2onnx.convert_keras(prediction_model, prediction_model.name)
     # print(onnx_model.graph)
+    keras2onnx.save_model(onnx_backbone, 'backbone.onnx')
     keras2onnx.save_model(onnx_model, 'model.onnx')
+    # keras2onnx.save_model(prediction_model, 'prediction.onnx')
 
     print('ocr2onnx DONE')
 
-    # os.system('./onnx2trt model.onnx -o model.trt -d 16 -b 1')
+    os.system('./onnx2trt backbone.onnx -o model.trt -d 16 -b 4')
+    # os.system('./onnx2trt model.onnx -o model.trt -d 16 -b 4')
+    # os.system('./onnx2trt prediction_model.onnx -o model.trt -d 16 -b 4')
