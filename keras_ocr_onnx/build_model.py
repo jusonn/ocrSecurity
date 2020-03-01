@@ -5,17 +5,6 @@ import numpy as np
 import keras2onnx
 from util_rec import _transform
 
-"""
-    'height': 31,
-    'width': 200,
-    'color': False,
-    'filters': (64, 128, 256, 256, 512, 512, 512),
-    'rnn_units': (128, 128),
-    'dropout': 0.25,
-    'rnn_steps_to_discard': 2,
-    'pool_size': 2,
-    'stn': True,
-"""
 
 def CTCDecoder():
     def decoder(y_pred):
@@ -37,17 +26,17 @@ def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
     x = keras.layers.Permute((2, 1, 3))(inputs)
     # x = keras.layers.Lambda(lambda x: x[:, :, ::-1])(x)
     # x = x[..., ::-1]
-    x = keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same', name='conv_1')(x)
-    x = keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same', name='conv_2')(x)
-    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='conv_3')(x)
+    x = keras.layers.Conv2D(filters[0], (3, 3), activation='relu', padding='same', name='conv_1')(x)
+    x = keras.layers.Conv2D(filters[1], (3, 3), activation='relu', padding='same', name='conv_2')(x)
+    x = keras.layers.Conv2D(filters[2], (3, 3), activation='relu', padding='same', name='conv_3')(x)
     x = keras.layers.BatchNormalization(name='bn_3')(x)
     x = keras.layers.MaxPooling2D(pool_size=(2,  2), name='maxpool_3')(x)
-    x = keras.layers.Conv2D(256, (3, 3), activation='relu', padding='same', name='conv_4')(x)
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='conv_5')(x)
+    x = keras.layers.Conv2D(filters[3], (3, 3), activation='relu', padding='same', name='conv_4')(x)
+    x = keras.layers.Conv2D(filters[4], (3, 3), activation='relu', padding='same', name='conv_5')(x)
     x = keras.layers.BatchNormalization(name='bn_5')(x)
     x = keras.layers.MaxPooling2D(pool_size=(2, 2), name='maxpool_5')(x)
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='conv_6')(x)
-    x = keras.layers.Conv2D(512, (3, 3), activation='relu', padding='same', name='conv_7')(x)
+    x = keras.layers.Conv2D(filters[5], (3, 3), activation='relu', padding='same', name='conv_6')(x)
+    x = keras.layers.Conv2D(filters[6], (3, 3), activation='relu', padding='same', name='conv_7')(x)
     x = keras.layers.BatchNormalization(name='bn_7')(x)
 
     stn_input_output_shape = (width // pool_size**2, height // pool_size**2, 512)
@@ -68,16 +57,16 @@ def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
     x = keras.layers.Reshape(target_shape=(width // pool_size**2,
                                            (height // pool_size ** 2) * 512),
                             name='reshape')(x)
-    x = keras.layers.Dense(128, activation='relu', name='fc_9')(x)
+    x = keras.layers.Dense(rnn_units[0], activation='relu', name='fc_9')(x)
 
-    rnn_1_forward = keras.layers.LSTM(128, kernel_initializer='he_normal', return_sequences=True, name='lstm_10')(x)
-    rnn_1_back = keras.layers.LSTM(128, kernel_initializer='he_normal', go_backwards=True, return_sequences=True, name='lstm_10_back')(x)
+    rnn_1_forward = keras.layers.LSTM(rnn_units[0], kernel_initializer='he_normal', return_sequences=True, name='lstm_10')(x)
+    rnn_1_back = keras.layers.LSTM(rnn_units[0], kernel_initializer='he_normal', go_backwards=True, return_sequences=True, name='lstm_10_back')(x)
     rnn_1_add = keras.layers.Add()([rnn_1_forward, rnn_1_back])
-    rnn_2_forward = keras.layers.LSTM(128,
+    rnn_2_forward = keras.layers.LSTM(rnn_units[1],
                                       kernel_initializer="he_normal",
                                       return_sequences=True,
                                       name='lstm_11')(rnn_1_add)
-    rnn_2_back = keras.layers.LSTM(128,
+    rnn_2_back = keras.layers.LSTM(rnn_units[1],
                                    kernel_initializer="he_normal",
                                    go_backwards=True,
                                    return_sequences=True,
@@ -85,7 +74,7 @@ def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
     x = keras.layers.Concatenate()([rnn_2_forward, rnn_2_back])
     backbone = keras.models.Model(inputs=inputs, outputs=x)
     x = keras.layers.Dropout(0.2, name='dropout')(x)
-    x = keras.layers.Dense(28+1, kernel_initializer='he_normal', activation='softmax', name='fc_12')(x)
+    x = keras.layers.Dense(alphabet+1, kernel_initializer='he_normal', activation='softmax', name='fc_12')(x)
     x = keras.layers.Lambda(lambda x: x[:, 2:])(x)
     model = keras.models.Model(inputs=inputs, outputs=x)
     prediction_model = keras.models.Model(inputs=inputs, outputs=CTCDecoder()(model.output))
@@ -96,7 +85,20 @@ def build_model(alphabet, height, width, color, filters, rnn_units, dropout,
 if __name__ == '__main__':
     import os
 
-    backbone, model, prediction_model = build_model(1,200, 200, 1, 7, 2, 0.1, 2, 2)
+    """
+        'height': 31,
+        'width': 200,
+        'color': False,
+        'filters': (64, 128, 256, 256, 512, 512, 512),
+        'rnn_units': (128, 128),
+        'dropout': 0.25,
+        'rnn_steps_to_discard': 2,
+        'pool_size': 2,
+        'stn': True,
+    """
+
+    backbone, model, prediction_model = build_model(28, 200, 200, False, (64, 128, 256, 256, 512, 512, 512),
+                                                    (128, 128), 0.1, 2, 2, True)
     # model.summary()
     onnx_backbone = keras2onnx.convert_keras(backbone, backbone.name)
     onnx_model = keras2onnx.convert_keras(model, model.name)
