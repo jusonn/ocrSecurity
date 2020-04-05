@@ -200,6 +200,8 @@ def adjust_boxes(boxes, boxes_format='boxes', scale=1):
         return np.array(boxes) * scale
     if boxes_format == 'lines':
         return [[(np.array(box) * scale, character) for box, character in line] for line in boxes]
+    if boxes_format == 'words':
+        return [[(np.array(box)* scale, word) for box, word in boxes]]
     if boxes_format == 'predictions':
         return [(word, np.array(box) * scale) for word, box in boxes]
     raise NotImplementedError(f'Unsupported boxes format: {boxes_format}')
@@ -264,6 +266,13 @@ def augment(boxes,
                                                              for box, character in line] if inside]
                            for line in boxes_augmented]
         # Sometimes all the characters in a line are removed.
+        boxes_augmented = [line for line in boxes_augmented if line]
+
+    elif boxes_format == 'words':
+        boxes_augmented = [(augment_box(box), word) for box, word in boxes]
+        boxes_augmented = [(box, word)
+                          for (inside, box), word in [(box_inside_image(box), word)
+                                                      for box, word in boxes_augmented] if inside]
         boxes_augmented = [line for line in boxes_augmented if line]
     elif boxes_format == 'predictions':
         boxes_augmented = [(word, augment_box(box)) for word, box in boxes]

@@ -10,7 +10,7 @@ import os
 import tqdm
 import numpy as np
 
-from . import tools
+import tools
 
 
 def _read_born_digital_labels_file(labels_filepath, image_folder):

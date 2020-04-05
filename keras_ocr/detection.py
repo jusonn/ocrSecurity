@@ -28,7 +28,7 @@ import tensorflow as tf
 import efficientnet.tfkeras as efficientnet
 from tensorflow import keras
 
-from . import tools
+import tools
 
 
 def compute_input(image):
@@ -633,6 +633,7 @@ class Detector:
 
     def detect(self,
                images: typing.List[typing.Union[np.ndarray, str]],
+               words,
                detection_threshold=0.7,
                text_threshold=0.4,
                link_threshold=0.4,
@@ -653,4 +654,5 @@ class Detector:
                          text_threshold=text_threshold,
                          link_threshold=link_threshold,
                          size_threshold=size_threshold)[0])
+
         return boxes
