@@ -303,7 +303,7 @@ class Recognizer:
     Args:
         alphabet: The alphabet the model should recognize.
         build_params: A dictionary of build parameters for the model.
-            See `keras_ocr.detection.build_model` for details.
+            See `keras_ocr_legacy.detection.build_model` for details.
         weights: The starting weight configuration for the model.
         include_top: Whether to include the final classification layer in the model (set
             to False to use a custom alphabet).
@@ -368,12 +368,12 @@ class Recognizer:
             sentences = [sample[1].strip() for sample in batch]
             if lowercase:
                 sentences = [sentence.lower() for sentence in sentences]
-            # assert all(c in self.alphabet
-            #            for c in ''.join(sentences)), 'Found illegal characters in sentence.'
-            # assert all(sentences), 'Found a zero length sentence.'
-            # assert all(
-            #     len(sentence) <= max_string_length
-            #     for sentence in sentences), 'A sentence is longer than this model can predict.'
+            assert all(c in self.alphabet
+                       for c in ''.join(sentences)), 'Found illegal characters in sentence.'
+            assert all(sentences), 'Found a zero length sentence.'
+            assert all(
+                len(sentence) <= max_string_length
+                for sentence in sentences), 'A sentence is longer than this model can predict.'
             label_length = np.array([len(sentence) for sentence in sentences])[:, np.newaxis]
             labels = np.array([[self.alphabet.index(c)
                                 for c in sentence] + [-1] * (max_string_length - len(sentence))

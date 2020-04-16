@@ -7,7 +7,7 @@ import detection
 from tensorflow.compat.v1.keras.backend import set_session
 import sklearn.model_selection
 import numpy as np
-tf.get_logger().setLevel('INFO')
+
 """
 Set session to avoid bug
 """
@@ -103,44 +103,31 @@ if __name__ == '__main__':
 
     real_dataset = ws_dataset.prepare_dataset('../ICDAR2017/training_images/')
     real_train, real_validation = sklearn.model_selection.train_test_split(
-        real_dataset, train_size=0.6, random_state=42
+        real_dataset, train_size=0.8, random_state=42
     )
-    """
-    6
-    [(array([[ 53, 229],
-           [ 82, 229],
-           [ 82, 266],
-           [ 53, 266]]), 'R'), (array([[ 88, 230],
-           [116, 230],
-           [116, 266],
-           [ 88, 266]]), 'E'), (array([[121, 230],
-           [152, 230],
-           [152, 266],
-           [121, 266]]), 'D')]
-    """
-    # augmenter = imgaug.augmenters.Sequential([
-    #     imgaug.augmenters.Affine(
-    #         scale=(1.0, 1.2),
-    #         rotate=(-5, 5)
-    #     ),
-    #     imgaug.augmenters.GaussianBlur(sigma=(0, 0.5)),
-    #     imgaug.augmenters.Multiply((0.8, 1.2), per_channel=0.2)
-    # ])
-    #
+    augmenter = imgaug.augmenters.Sequential([
+        imgaug.augmenters.Affine(
+            scale=(1.0, 1.2),
+            rotate=(-5, 5)
+        ),
+        imgaug.augmenters.GaussianBlur(sigma=(0, 0.5)),
+        imgaug.augmenters.Multiply((0.8, 1.2), per_channel=0.2)
+    ])
+
     training_image_generator = ws_dataset.real_data_generator(real_train,
                                                              width=640,
                                                              height=640,
-                                                             augmenter=None,
+                                                             augmenter=augmenter,
                                                              )
     validation_image_generator = ws_dataset.real_data_generator(real_validation,
                                                                width=640,
                                                                height=640,
                                                                augmenter=None)
-    image, lines, confidence = next(training_image_generator)
-    import tools
-    import cv2
-    canvas = tools.drawBoxes(image=image, boxes=lines, boxes_format='lines')
-    cv2.imwrite('test.png', canvas)
+
+    # import tools
+    # import cv2
+    # canvas = tools.drawBoxes(image=image, boxes=lines, boxes_format='lines')
+    # cv2.imwrite('test.png', canvas)
 
     batch_size = 1
     training_generator, validation_generator = [
@@ -149,7 +136,6 @@ if __name__ == '__main__':
         ) for image_generator in
         [training_image_generator, validation_image_generator]
     ]
-
     detector.model.fit_generator(
         generator=training_generator,
         steps_per_epoch=math.ceil(len(real_train) / batch_size),

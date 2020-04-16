@@ -82,6 +82,10 @@ def warpBox(image,
     return full
 
 
+def flatten(list_of_lists):
+    return [item for sublist in list_of_lists for item in sublist]
+
+
 def combine_line(line):
     """Combine a set of boxes in a line into a single bounding
     box.
@@ -92,7 +96,7 @@ def combine_line(line):
     Returns:
         A (box, text) tuple
     """
-    text = ''.join([character for _, character in line])
+    text = ''.join([character if character is not None else '' for _, character in line])
     box = np.concatenate([coords[:2] for coords, _ in line] +
                          [np.array([coords[3], coords[2]])
                           for coords, _ in reversed(line)]).astype('float32')
@@ -155,12 +159,12 @@ def drawBoxes(image, boxes, color=(255, 0, 0), thickness=5, boxes_format='boxes'
         boxes_format: The format used for providing the boxes. Options are
             "boxes" which indicates an array with shape(N, 4, 2) where N is the
             number of boxes and each box is a list of four points) as provided
-            by `keras_ocr.detection.Detector.detect`, "lines" (a list of
+            by `keras_ocr_legacy.detection.Detector.detect`, "lines" (a list of
             lines where each line itself is a list of (box, character) tuples) as
-            provided by `keras_ocr.data_generation.get_image_generator`,
+            provided by `keras_ocr_legacy.data_generation.get_image_generator`,
             or "predictions" where boxes is by itself a list of (word, box) tuples
-            as provided by `keras_ocr.pipeline.Pipeline.recognize` or
-            `keras_ocr.recognition.Recognizer.recognize_from_boxes`.
+            as provided by `keras_ocr_legacy.pipeline.Pipeline.recognize` or
+            `keras_ocr_legacy.recognition.Recognizer.recognize_from_boxes`.
     """
     if len(boxes) == 0:
         return image
@@ -202,7 +206,7 @@ def adjust_boxes(boxes, boxes_format='boxes', scale=1):
         try:
             return [[(np.array(box) * scale, character) for box, character in line] for line in boxes]
         except:
-            return [[(np.array(box)* scale, word) for box, word in boxes]]
+            return [[(np.array(box) * scale, word) for box, word in boxes]]
     if boxes_format == 'words':
         return [[(np.array(box)* scale, word) for box, word in boxes]]
     if boxes_format == 'predictions':
@@ -215,7 +219,8 @@ def augment(boxes,
             image=None,
             boxes_format='boxes',
             image_shape=None,
-            area_threshold=0.5):
+            area_threshold=0.5,
+            min_area=None):
     """Augment an image and associated boxes together.
 
     Args:
@@ -226,6 +231,7 @@ def augment(boxes,
         image_shape: The shape of the input image if no image will be provided.
         area_threshold: Fraction of bounding box that we require to be
             in augmented image to include it.
+        min_area: The minimum area for a character to be included.
     """
     if image is None and image_shape is None:
         raise ValueError('One of "image" or "image_shape" must be provided.')
@@ -250,7 +256,8 @@ def augment(boxes,
         clipped[:, 0] = clipped[:, 0].clip(0, image_augmented_shape[1])
         clipped[:, 1] = clipped[:, 1].clip(0, image_augmented_shape[0])
         area_after = cv2.contourArea(np.int32(clipped)[:, np.newaxis, :])
-        return (area_after / area_before) >= area_threshold, clipped
+        return ((area_after / area_before) >= area_threshold) and (min_area is None or
+                                                                   area_after > min_area), clipped
 
     def augment_box(box):
         return augmenter.augment_keypoints(
@@ -270,7 +277,6 @@ def augment(boxes,
                            for line in boxes_augmented]
         # Sometimes all the characters in a line are removed.
         boxes_augmented = [line for line in boxes_augmented if line]
-
     elif boxes_format == 'words':
         boxes_augmented = [(augment_box(box), word) for box, word in boxes]
         boxes_augmented = [(box, word)
@@ -406,6 +412,11 @@ def sha256sum(filename):
     return h.hexdigest()
 
 
+def get_default_cache_dir():
+    return os.environ.get('KERAS_OCR_CACHE_DIR', os.path.expanduser(os.path.join('~',
+                                                                                 '.keras-ocr')))
+
+
 def download_and_verify(url, sha256=None, cache_dir=None, verbose=True, filename=None):
     """Download a file to a cache directory and verify it with a sha256
     hash.
@@ -421,7 +432,7 @@ def download_and_verify(url, sha256=None, cache_dir=None, verbose=True, filename
             derived from the URL.
     """
     if cache_dir is None:
-        cache_dir = os.path.expanduser(os.path.join('~', '.keras-ocr'))
+        cache_dir = get_default_cache_dir()
     if filename is None:
         filename = os.path.basename(urllib.parse.urlparse(url).path)
     filepath = os.path.join(cache_dir, filename)
@@ -448,9 +459,12 @@ def get_rotated_box(
         top-right, bottom-right, bottom-left order along
         with the angle of rotation about the bottom left corner.
     """
-    mp = geometry.MultiPoint(points=points)
-    pts = np.array(list(zip(*mp.minimum_rotated_rectangle.exterior.xy)))[:-1]  # noqa: E501
-
+    try:
+        mp = geometry.MultiPoint(points=points)
+        pts = np.array(list(zip(*mp.minimum_rotated_rectangle.exterior.xy)))[:-1]  # noqa: E501
+    except AttributeError:
+        # There weren't enough points for the minimum rotated rectangle function
+        pts = points
     # The code below is taken from
     # https://github.com/jrosebr1/imutils/blob/master/imutils/perspective.py
 
@@ -482,6 +496,8 @@ def get_rotated_box(
 
     rotation = np.arctan((tl[0] - bl[0]) / (tl[1] - bl[1]))
     return pts, rotation
+
+
 def fix_line(line):
     """Given a list of (box, character) tuples, return a revised
     line with a consistent ordering of left-to-right or top-to-bottom,

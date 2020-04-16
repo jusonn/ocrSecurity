@@ -614,7 +614,7 @@ class Detector:
 
         Args:
             image_generator: A generator with the same signature as
-                keras_ocr.tools.get_image_generator. Optionally, a third
+                keras_ocr_legacy.tools.get_image_generator. Optionally, a third
                 entry in the tuple (beyond image and lines) can be provided
                 which will be interpreted as the sample weight.
             batch_size: The size of batches to generate.
@@ -637,13 +637,12 @@ class Detector:
                              lines=lines) for lines in line_groups
             ])
             # pylint: enable=unsubscriptable-object
-            print(batch[0])
+
             if len(batch[0]) == 3:
                 sample_weights = np.array([sample[2] for sample in batch])
-                print(sample_weights)
                 yield X, y, sample_weights
             else:
-                yield X, y, [None]
+                yield X, y
 
     def detect(self,
                images: typing.List[typing.Union[np.ndarray, str]],
