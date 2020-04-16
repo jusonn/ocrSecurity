@@ -11,6 +11,7 @@ import tqdm
 import numpy as np
 
 import tools
+import tensorflow as tf
 
 
 def _read_born_digital_labels_file(labels_filepath, image_folder):
@@ -170,9 +171,27 @@ def get_icdar_2013_recognizer_dataset(cache_dir=None):
             dataset.append((image_path, box, text))
     return dataset
 
+from ws_dataset import read_gt
 
-def get_icdar_2013_detector_dataset(cache_dir=None, skip_illegible=False):
-    """Get the ICDAR 2013 text segmentation dataset for detector
+def prepare_data(img_path, data_id):
+    loc_path = os.path.join('../icdar2013', 'loc_gt', f'{data_id}_GT.txt')
+    loc_data = read_gt(loc_path, '2013')
+    return [img_path, loc_data]
+
+def prepare_dataset(path):
+    image_paths = os.listdir(path)
+    dataset = []
+    for image_path in image_paths:
+        data_id = image_path.split('.')[0]
+        image_path = os.path.join(path, image_path)
+        data = prepare_data(image_path, data_id)
+        dataset.append(data)
+    return dataset
+
+def get_icdar_2013_detector_dataset(labels):
+    """
+    DEPRECATED
+    Get the ICDAR 2013 text segmentation dataset for detector
     training. Only the training set has the necessary annotations.
     For the test set, only segmentation maps are provided, which
     do not provide the necessary information for affinity scores.
@@ -186,36 +205,19 @@ def get_icdar_2013_detector_dataset(cache_dir=None, skip_illegible=False):
         is always 1 for this dataset. We record confidence to allow
         for future support for weakly supervised cases.
     """
-    if cache_dir is None:
-        cache_dir = os.path.expanduser(os.path.join('~', '.keras-ocr'))
-    main_dir = os.path.join(cache_dir, 'icdar2013')
-    training_images_dir = os.path.join(main_dir, 'Challenge2_Training_Task12_Images')
-    training_zip_images_path = tools.download_and_verify(
-        url=
-        'https://www.mediafire.com/file/l8ct7ckudg12ln6/Challenge2_Training_Task12_Images.zip/file',  # pylint: disable=line-too-long
-        cache_dir=main_dir,
-        filename='Challenge2_Training_Task12_Images.zip',
-        sha256='7a57d1699fbb92db3ad82c930202938562edaf72e1c422ddd923860d8ace8ded')
-    if len(glob.glob(os.path.join(training_images_dir, '*.jpg'))) != 229:
-        with zipfile.ZipFile(training_zip_images_path) as zfile:
-            zfile.extractall(training_images_dir)
-    training_gt_dir = os.path.join(main_dir, 'Challenge2_Training_Task2_GT')
-    training_zip_gt_path = tools.download_and_verify(
-        url='https://www.mediafire.com/file/rpfphmxvudn5v3y/Challenge2_Training_Task2_GT.zip/file',  # pylint: disable=line-too-long
-        cache_dir=main_dir,
-        filename='Challenge2_Training_Task2_GT.zip',
-        sha256='4cedd5b1e33dc4354058f5967221ac85dbdf91a99b30f3ab1ecdf42786a9d027')
-    if len(glob.glob(os.path.join(training_gt_dir, '*.txt'))) != 229:
-        with zipfile.ZipFile(training_zip_gt_path) as zfile:
-            zfile.extractall(training_gt_dir)
 
-    dataset = []
-    for gt_filepath in glob.glob(os.path.join(training_gt_dir, '*.txt')):
-        image_id = os.path.split(gt_filepath)[1].split('_')[0]
-        image_path = os.path.join(training_images_dir, image_id + '.jpg')
+    for index in itertools.cycle(range(len(labels))):
+        print(labels[index])
+        image_path, gt_filepath = labels[index]
+        image = tools.read(image_path)
+
         lines = []
+        character_bboxes = []
+        characters = []
+        confidences = []
         with open(gt_filepath, 'r') as f:
             current_line = []
+            current_bbox = []
             for row in f.read().split('\n'):
                 if row == '':
                     lines.append(current_line)
@@ -226,14 +228,49 @@ def get_icdar_2013_detector_dataset(cache_dir=None, skip_illegible=False):
                     if character == '' and skip_illegible:
                         continue
                     x1, y1, x2, y2 = map(int, row[:4])
-                    current_line.append((np.array([[x1, y1], [x2, y1], [x2, y2], [x1,
-                                                                                  y2]]), character))
+                    current_bbox.append([[x1, y1], [x2, y1], [x2, y2], [x1,y2]])
+                    characters.append(character)
         # Some lines only have illegible characters and if skip_illegible is True,
         # then these lines will be blank.
-        lines = [line for line in lines if line]
-        dataset.append((image_path, lines, 1))
-    return dataset
+        character_bboxes.append(np.array(current_bbox))
+        confidences.append(1.0)
 
+        yield image, character_bboxes, characters, np.ones((image.shape[0], image.shape[1]), np.float32), confidences
+
+
+# def get_detector_image_generator(labels, width, height, augmenter=None, area_threshold=0.5):
+#     """Generated augmented (image, lines) tuples from a list
+#     of (filepath, lines, confidence) tuples. Confidence is
+#     not used right now but is included for a future release
+#     that uses semi-supervised data.
+#
+#     Args:
+#         labels: A list of (image, lines, confience) tuples.
+#         augmenter: An augmenter to apply to the images.
+#         width: The width to use for output images
+#         height: The height to use for output images
+#         area_threshold: The area threshold to use to keep
+#             characters in augmented images.
+#     """
+#     labels = labels.copy()
+#     for index in itertools.cycle(range(len(labels))):
+#         if index == 0:
+#             random.shuffle(labels)
+#         image_filepath, lines= labels[index]
+#         image = tools.read(image_filepath)
+#         if augmenter is not None:
+#             image, lines = tools.augment(boxes=lines,
+#                                          boxes_format='lines',
+#                                          image=image,
+#                                          area_threshold=area_threshold,
+#                                          augmenter=augmenter)
+#         image, scale = tools.fit(image,
+#                                  width=width,
+#                                  height=height,
+#                                  mode='letterbox',
+#                                  return_scale=True)
+#         lines = tools.adjust_boxes(boxes=lines, boxes_format='lines', scale=scale)
+#         yield image, lines
 
 def get_detector_image_generator(labels, width, height, augmenter=None, area_threshold=0.5):
     """Generated augmented (image, lines) tuples from a list
@@ -253,7 +290,7 @@ def get_detector_image_generator(labels, width, height, augmenter=None, area_thr
     for index in itertools.cycle(range(len(labels))):
         if index == 0:
             random.shuffle(labels)
-        image_filepath, lines, _ = labels[index]
+        image_filepath, lines= labels[index]
         image = tools.read(image_filepath)
         if augmenter is not None:
             image, lines = tools.augment(boxes=lines,
@@ -267,7 +304,14 @@ def get_detector_image_generator(labels, width, height, augmenter=None, area_thr
                                  mode='letterbox',
                                  return_scale=True)
         lines = tools.adjust_boxes(boxes=lines, boxes_format='lines', scale=scale)
-        yield image, lines
+
+        bboxes = [line[0] for line in lines]
+        words = [line[1] for line in lines]
+        words = ''.join(words)
+
+        yield image[np.newaxis, ...], np.array(bboxes)[np.newaxis, ...],\
+              np.array(words)[np.newaxis, ... ], np.ones((image.shape[0], image.shape[1]), np.float32)[np.newaxis, ...],\
+              np.ones(len(words), np.float32)[np.newaxis, ...]
 
 
 def get_recognizer_image_generator(labels, height, width, alphabet, augmenter=None):

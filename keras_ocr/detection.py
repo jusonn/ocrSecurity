@@ -30,7 +30,6 @@ from tensorflow import keras
 
 import tools
 
-
 def compute_input(image):
     # should be RGB order
     image = image.astype('float32')
@@ -104,25 +103,38 @@ def compute_maps(heatmap, image_height, image_width, lines):
                     [0, heatmap.shape[0]]]).astype('float32')
 
     for line in lines:
+        line, orientation = tools.fix_line(line)
         previous_link_points = None
         for [(x1, y1), (x2, y2), (x3, y3), (x4, y4)], c in line:
+            x1, y1, x2, y2, x3, y3, x4, y4 = map(lambda v: max(v, 0),
+                                                 [x1, y1, x2, y2, x3, y3, x4, y4])
             if c == ' ':
                 previous_link_points = None
                 continue
             yc = (y4 + y1 + y3 + y2) / 4
             xc = (x1 + x2 + x3 + x4) / 4
-
-            current_link_points = np.array([[(xc + (x1 + x2) / 2) / 2, (yc + (y1 + y2) / 2) / 2],
-                                            [(xc + (x3 + x4) / 2) / 2,
-                                             (yc + (y3 + y4) / 2) / 2]]) / 2
+            if orientation == 'horizontal':
+                current_link_points = np.array([[
+                    (xc + (x1 + x2) / 2) / 2, (yc + (y1 + y2) / 2) / 2
+                ], [(xc + (x3 + x4) / 2) / 2, (yc + (y3 + y4) / 2) / 2]]) / 2
+            else:
+                current_link_points = np.array([[
+                    (xc + (x1 + x4) / 2) / 2, (yc + (y1 + y4) / 2) / 2
+                ], [(xc + (x2 + x3) / 2) / 2, (yc + (y2 + y3) / 2) / 2]]) / 2
             character_points = np.array([[x1, y1], [x2, y2], [x3, y3], [x4, y4]
                                          ]).astype('float32') / 2
             # pylint: disable=unsubscriptable-object
             if previous_link_points is not None:
-                link_points = np.array([
-                    previous_link_points[0], current_link_points[0], current_link_points[1],
-                    previous_link_points[1]
-                ])
+                if orientation == 'horizontal':
+                    link_points = np.array([
+                        previous_link_points[0], current_link_points[0], current_link_points[1],
+                        previous_link_points[1]
+                    ])
+                else:
+                    link_points = np.array([
+                        previous_link_points[0], previous_link_points[1], current_link_points[1],
+                        current_link_points[0]
+                    ])
                 ML = cv2.getPerspectiveTransform(
                     src=src,
                     dst=link_points.astype('float32'),
@@ -625,15 +637,16 @@ class Detector:
                              lines=lines) for lines in line_groups
             ])
             # pylint: enable=unsubscriptable-object
+            print(batch[0])
             if len(batch[0]) == 3:
                 sample_weights = np.array([sample[2] for sample in batch])
+                print(sample_weights)
                 yield X, y, sample_weights
             else:
-                yield X, y
+                yield X, y, [None]
 
     def detect(self,
                images: typing.List[typing.Union[np.ndarray, str]],
-               words,
                detection_threshold=0.7,
                text_threshold=0.4,
                link_threshold=0.4,
@@ -654,5 +667,9 @@ class Detector:
                          text_threshold=text_threshold,
                          link_threshold=link_threshold,
                          size_threshold=size_threshold)[0])
-
         return boxes
+
+if __name__=='__main__':
+    detecot = Detector()
+    # pretrained weight 사용해서 detector weakly supervised 데이터셋 로더 만들어야함.
+    # pytorch data_loader.py 참고

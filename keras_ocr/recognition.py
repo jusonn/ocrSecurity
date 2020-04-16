@@ -7,7 +7,7 @@ from tensorflow import keras
 import numpy as np
 import cv2
 
-from . import tools
+import tools
 
 DEFAULT_BUILD_PARAMS = {
     'height': 31,
@@ -368,12 +368,12 @@ class Recognizer:
             sentences = [sample[1].strip() for sample in batch]
             if lowercase:
                 sentences = [sentence.lower() for sentence in sentences]
-            assert all(c in self.alphabet
-                       for c in ''.join(sentences)), 'Found illegal characters in sentence.'
-            assert all(sentences), 'Found a zero length sentence.'
-            assert all(
-                len(sentence) <= max_string_length
-                for sentence in sentences), 'A sentence is longer than this model can predict.'
+            # assert all(c in self.alphabet
+            #            for c in ''.join(sentences)), 'Found illegal characters in sentence.'
+            # assert all(sentences), 'Found a zero length sentence.'
+            # assert all(
+            #     len(sentence) <= max_string_length
+            #     for sentence in sentences), 'A sentence is longer than this model can predict.'
             label_length = np.array([len(sentence) for sentence in sentences])[:, np.newaxis]
             labels = np.array([[self.alphabet.index(c)
                                 for c in sentence] + [-1] * (max_string_length - len(sentence))
