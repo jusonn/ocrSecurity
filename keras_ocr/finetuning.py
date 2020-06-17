@@ -11,6 +11,13 @@ from tensorflow.compat.v1.keras.backend import set_session
 import detection
 import datasets
 
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--batch-size', '-b', default=1, type=int)
+
+args = parser.parse_args()
+
 config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
 config.log_device_placement = True  # to log device placement (on which device the operation ran)
@@ -80,7 +87,7 @@ validation_image_generator = datasets.get_detector_image_generator(
 
 detector = detection.Detector()
 
-batch_size = 1
+batch_size = args.batch_size
 training_generator, validation_generator = [
     detector.get_batch_generator(
         image_generator=image_generator, batch_size=batch_size
