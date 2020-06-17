@@ -43,7 +43,7 @@ def get_cocotext_recognizer_dataset(split='train',
         split: Which split to get (train, val, or trainval)
         limit: Limit the number of files included in the download
         cache_dir: The directory in which to cache the file. The default is
-            `~/.keras-ocr`.
+            `~/.keras-ocr_old_dataset`.
         return_raw_labels: Whether to return the raw labels object
 
     Returns:
@@ -106,7 +106,7 @@ def get_born_digital_recognizer_dataset(split='train', cache_dir=None):
     Args:
         split: Which split to get (train, test, or traintest)
         cache_dir: The directory in which to cache the file. The default is
-            `~/.keras-ocr`.
+            `~/.keras-ocr_old_dataset`.
 
     Returns:
         A recognition dataset as a list of (filepath, box, word) tuples
@@ -159,7 +159,7 @@ def get_icdar_2013_recognizer_dataset(cache_dir=None):
 
     Args:
         cache_dir: The directory in which to cache the file. The default is
-            `~/.keras-ocr`.
+            `~/.keras-ocr_old_dataset`.
 
     Returns:
         A recognition dataset as a list of (filepath, box, word) tuples
@@ -313,6 +313,7 @@ def get_detector_image_generator(labels,
         if index == 0:
             random.shuffle(labels)
         image_filepath, lines, confidence = labels[index]
+        # print(image_filepath)
         image = tools.read(image_filepath)
         if augmenter is not None:
             image, lines = tools.augment(boxes=lines,

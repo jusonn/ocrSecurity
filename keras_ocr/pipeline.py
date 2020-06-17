@@ -1,7 +1,7 @@
 # pylint: disable=too-few-public-methods
 import numpy as np
 
-from . import detection, recognition, tools
+import detection, recognition, tools
 
 
 class Pipeline:

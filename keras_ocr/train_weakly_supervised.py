@@ -84,6 +84,7 @@ if __name__ == '__main__':
     import math
     import os
 
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     # synth_dataset = datasets.prepare_dataset('../icdar2013/images')
     # synth_train, synth_validation = sklearn.model_selection.train_test_split(
     #     synth_dataset, train_size=0.8, random_state=42

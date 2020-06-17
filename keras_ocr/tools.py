@@ -414,7 +414,7 @@ def sha256sum(filename):
 
 def get_default_cache_dir():
     return os.environ.get('KERAS_OCR_CACHE_DIR', os.path.expanduser(os.path.join('~',
-                                                                                 '.keras-ocr')))
+                                                                                 '.keras-ocr_old_dataset')))
 
 
 def download_and_verify(url, sha256=None, cache_dir=None, verbose=True, filename=None):
@@ -426,7 +426,7 @@ def download_and_verify(url, sha256=None, cache_dir=None, verbose=True, filename
         sha256: The sha256 hash to check. If the file already exists and the hash
             matches, we don't download it again.
         cache_dir: The directory in which to cache the file. The default is
-            `~/.keras-ocr`.
+            `~/.keras-ocr_old_dataset`.
         verbose: Whether to log progress
         filename: The filename to use for the file. By default, the filename is
             derived from the URL.

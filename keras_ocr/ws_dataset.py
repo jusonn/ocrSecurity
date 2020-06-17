@@ -182,41 +182,14 @@ if __name__ == '__main__':
     """
     icdar synth data
     """
-    dataset = datasets.get_icdar_2013_detector_dataset(
-        cache_dir='',
-        skip_illegible=False
-    )
-    print(dataset)
-    train, validation = sklearn.model_selection.train_test_split(
-        dataset, train_size=0.8, random_state=42
-    )
-    augmenter = imgaug.augmenters.Sequential([
-        imgaug.augmenters.Affine(
-            scale=(1.0, 1.2),
-            rotate=(-5, 5)
-        ),
-        imgaug.augmenters.GaussianBlur(sigma=(0, 0.5)),
-        imgaug.augmenters.Multiply((0.8, 1.2), per_channel=0.2)
-    ])
-    generator_kwargs = {'width': 640, 'height': 640}
-    training_image_generator = datasets.get_detector_image_generator(
-        labels=train,
-        augmenter=None,
-        **generator_kwargs
-    )
-    validation_image_generator = datasets.get_detector_image_generator(
-        labels=validation,
-        **generator_kwargs
-    )
-    print(len(train))
-    print(len(validation))
-    # print(next(training_image_generator))
-
-    """
-    word to char
-    """
-    # detector = Detector(load_from_torch=False)
-    #
+    # dataset = datasets.get_icdar_2013_detector_dataset(
+    #     cache_dir='',
+    #     skip_illegible=False
+    # )
+    # print(dataset)
+    # train, validation = sklearn.model_selection.train_test_split(
+    #     dataset, train_size=0.8, random_state=42
+    # )
     # augmenter = imgaug.augmenters.Sequential([
     #     imgaug.augmenters.Affine(
     #         scale=(1.0, 1.2),
@@ -225,43 +198,70 @@ if __name__ == '__main__':
     #     imgaug.augmenters.GaussianBlur(sigma=(0, 0.5)),
     #     imgaug.augmenters.Multiply((0.8, 1.2), per_channel=0.2)
     # ])
-    #
-    # dataset = prepare_dataset('../ICDAR2017/training_images/')
-    # data_loader = get_detector_ws_image_generator(dataset,
-    #                                               width=640,
-    #                                               height=640,
-    #                                               augmenter=None,
-    #                                               )
-    #
-    # for i in range(10):
-    #     data = next(data_loader)
-    #
-    #     # image, character_bboxes, new_words, confidence_mask, confidence
-    #     image, character_bboxes, new_words, confidence_mask, confidences = data
-    #
-    #     if len(confidences) == 0:
-    #         confidences = 1.0
-    #     else:
-    #         confidences = np.array(confidences).mean()
-    #
-    #     region_scores = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
-    #     affinity_scores = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
-    #     affinity_bboxes = []
-    #
-    #     if len(character_bboxes) > 0:
-    #         region_scores = gaussianTransformer.generate_region(region_scores.shape, character_bboxes)
-    #         affinity_scores, affinity_bboxes = gaussianTransformer.generate_affinity(region_scores.shape,
-    #                                                                                  character_bboxes,
-    #                                                                                  new_words)
-    #
-    #     saveImage(f'test{i}.png', image.copy(), character_bboxes,
-    #               affinity_bboxes, region_scores,
-    #               affinity_scores, confidence_mask)
-    #     if i == 100:
-    #         break
+    # generator_kwargs = {'width': 640, 'height': 640}
+    # training_image_generator = datasets.get_detector_image_generator(
+    #     labels=train,
+    #     augmenter=None,
+    #     **generator_kwargs
+    # )
+    # validation_image_generator = datasets.get_detector_image_generator(
+    #     labels=validation,
+    #     **generator_kwargs
+    # )
+    # print(len(train))
+    # print(len(validation))
+    # print(next(training_image_generator))
+
+    """
+    word to char
+    """
+    detector = Detector()
+
+    augmenter = imgaug.augmenters.Sequential([
+        imgaug.augmenters.Affine(
+            scale=(1.0, 1.2),
+            rotate=(-5, 5)
+        ),
+        imgaug.augmenters.GaussianBlur(sigma=(0, 0.5)),
+        imgaug.augmenters.Multiply((0.8, 1.2), per_channel=0.2)
+    ])
+
+    dataset = prepare_dataset('../ICDAR2017/training_images/')
+    data_loader = get_detector_ws_image_generator(dataset,
+                                                  width=640,
+                                                  height=640,
+                                                  augmenter=None,
+                                                  )
+
+    for i in range(10):
+        data = next(data_loader)
+
+        # image, character_bboxes, new_words, confidence_mask, confidence
+        image, character_bboxes, new_words, confidence_mask, confidences = data
+
+        if len(confidences) == 0:
+            confidences = 1.0
+        else:
+            confidences = np.array(confidences).mean()
+
+        region_scores = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
+        affinity_scores = np.zeros((image.shape[0], image.shape[1]), dtype=np.float32)
+        affinity_bboxes = []
+
+        if len(character_bboxes) > 0:
+            region_scores = gaussianTransformer.generate_region(region_scores.shape, character_bboxes)
+            affinity_scores, affinity_bboxes = gaussianTransformer.generate_affinity(region_scores.shape,
+                                                                                     character_bboxes,
+                                                                                     new_words)
+
+        saveImage(f'test{i}.png', image.copy(), character_bboxes,
+                  affinity_bboxes, region_scores,
+                  affinity_scores, confidence_mask)
+        if i == 100:
+            break
 
 
-# res = detector.detect([img])
-    # for r in res:
-    #     cavas = tools.drawBoxes(img, r)
-    # cv2.imwrite('tt.png', cavas)
+res = detector.detect([img])
+    for r in res:
+        cavas = tools.drawBoxes(img, r)
+    cv2.imwrite('tt.png', cavas)

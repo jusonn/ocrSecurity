@@ -273,6 +273,7 @@ def build_vgg_backbone(inputs):
     x = make_vgg_block(x, filters=512, n=37, pooling=False, prefix='basenet.slice4')
     x = make_vgg_block(x, filters=512, n=40, pooling=True, prefix='basenet.slice4')
     vgg = keras.models.Model(inputs=inputs, outputs=x)
+    vgg.trainable = False
     return [
         vgg.get_layer(slice_name).output for slice_name in [
             'basenet.slice1.12',
@@ -603,7 +604,7 @@ class Detector:
         else:
             weights_path = None
         self.model = build_keras_model(weights_path=weights_path, backbone_name=backbone_name)
-        self.model.compile(loss='mse', optimizer=optimizer)
+        self.model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
 
     def get_batch_generator(self,
                             image_generator,
