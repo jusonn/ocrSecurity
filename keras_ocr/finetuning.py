@@ -7,14 +7,17 @@ import tensorflow as tf
 import glob
 import math
 from tensorflow.compat.v1.keras.backend import set_session
-
+import cv2
 import detection
 import datasets
+import tools
+import pipeline
 
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch-size', '-b', default=1, type=int)
+parser.add_argument('--output', '-o', default='model', type=str)
 
 args = parser.parse_args()
 
@@ -24,9 +27,9 @@ config.log_device_placement = True  # to log device placement (on which device t
 sess = tf.compat.v1.Session(config=config)
 set_session(sess)
 
-def get_ocr_detector_dataset():
-    training_gt_dir = '../ocr_train/loc_gt'
-    training_images_dir = '../ocr_train/training_images'
+def get_ocr_detector_dataset(type):
+    training_gt_dir = f'../ocr_dataset/{type}/loc_gt'
+    training_images_dir = f'../ocr_dataset/{type}/images'
     dataset = []
     for gt_filepath in glob.glob(os.path.join(training_gt_dir, '*.txt')):
         image_id = os.path.split(gt_filepath)[1].split('_')[0]
@@ -56,10 +59,11 @@ def get_ocr_detector_dataset():
         dataset.append((image_path, lines, 1))
     return dataset
 
-dataset = get_ocr_detector_dataset()
-train, validation = sklearn.model_selection.train_test_split(
-    dataset, train_size=0.8, random_state=42
-)
+train = get_ocr_detector_dataset('train')
+validation = get_ocr_detector_dataset('test')
+# train, validation = sklearn.model_selection.train_test_split(
+#     dataset, train_size=0.8, random_state=42
+# )
 augmenter = imgaug.augmenters.Sequential([
     imgaug.augmenters.Affine(
     scale=(1.0, 1.2),
@@ -101,9 +105,31 @@ detector.model.fit_generator(
     workers=0,
     callbacks=[
         tf.keras.callbacks.EarlyStopping(restore_best_weights=True, patience=5),
-        tf.keras.callbacks.CSVLogger(os.path.join('log', 'detector_icdar2013.csv')),
-        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('model', 'detector_icdar2013.h5'))
+        tf.keras.callbacks.CSVLogger(os.path.join('log', f'{args.output}.csv')),
+        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('model', f'{args.output}.h5'))
     ],
     validation_data=validation_generator,
     validation_steps=math.ceil(len(validation) / batch_size)
 )
+
+print('[INFO] training done')
+
+def output(img_path, out_path):
+    img_path = img_path[0]
+    img = cv2.imread(img_path)
+    # img = cv2.resize(img, (img.shape[1] // 2, img.shape[0] // 2))
+    detector = detection.Detector()
+    detector.model.load_weights(f'model/{output}.h5')
+
+    pipe = pipeline.Pipeline(detector=detector)
+    predictions = pipe.recognize(images=[img])[0]
+    drawn = tools.drawBoxes(
+        image=img, boxes=predictions, boxes_format='predictions'
+    )
+    print(
+        'Predicted:', [text for text, box in predictions]
+    )
+    cv2.imwrite(out_path, drawn)
+
+for i, img in enumerate(validation_image_generator):
+    output(img, f'output_{i}.png')
