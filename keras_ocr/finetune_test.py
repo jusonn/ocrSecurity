@@ -77,10 +77,10 @@ validation_image_generator = datasets.get_detector_image_generator(
     **generator_kwargs
 )
 
+detector = detection.Detector()
+detector.model.load_weights(f'model/{args.model}.h5')
+pipe = pipeline.Pipeline(detector=detector)
 for i, img in enumerate(validation):
     print('sdfsdf')
     print(img[0])
-    detector = detection.Detector()
-    detector.model.load_weights(f'model/{args.model}.h5')
-    pipe = pipeline.Pipeline(detector=detector)
     output(img, pipe, f'output_{i}.png')
