@@ -9,6 +9,11 @@ files = os.listdir(PATH)
 files = sorted(files)
 files = [path for path in files if path.endswith('xml')]
 
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--type', '-y', default='train', type=str)
+
 def make_dataset(files, type='train'):
     _id = 1
     for file in tqdm.tqdm(files):
