@@ -13,6 +13,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--type', '-y', default='train', type=str)
+args = parser.parse_args()
 
 def make_dataset(files, type='train'):
     _id = 1
@@ -24,11 +25,11 @@ def make_dataset(files, type='train'):
         tree = ET.parse(os.path.join(PATH, file))
         root = tree.getroot()
         image = cv2.imread(os.path.join(PATH, img_file))
-        cv2.imwrite(f'ocr_dataset/{type}/images/{str(_id).zfill(3)}.png', image)
+        cv2.imwrite(f'ocr_dataset/{args.type}/images/{str(_id).zfill(3)}.png', image)
 
         objects = tree.findall('object')
 
-        with open(f'ocr_dataset/{type}/loc_gt/{str(_id).zfill(3)}_GT.txt', 'w') as f:
+        with open(f'ocr_dataset/{args.type}/loc_gt/{str(_id).zfill(3)}_GT.txt', 'w') as f:
 
             for object in objects:
                 name = object.find('name').text

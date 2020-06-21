@@ -13,6 +13,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model', '-m', default='model', type=str)
+args = parser.parse_args()
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
