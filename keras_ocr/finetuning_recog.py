@@ -113,7 +113,8 @@ recognizer.training_model.fit_generator(
     callbacks=[
         tf.keras.callbacks.EarlyStopping(restore_best_weights=True, patience=5),
         tf.keras.callbacks.CSVLogger(os.path.join('log', f'{args.output}.csv')),
-        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('model', f'{args.output}.h5'))
+        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('model', f'{args.output}.h5')),
+        tf.keras.callbacks.TensorBoard(log_dir='./logs')
     ],
     validation_data=validation_generator,
     validation_steps=math.ceil(len(validation) / batch_size)
