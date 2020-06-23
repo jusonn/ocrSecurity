@@ -363,9 +363,9 @@ def get_recognizer_image_generator(labels, height, width, alphabet, augmenter=No
         alphabet: The alphabet which limits the characters returned
         augmenter: The augmenter to apply to images
     """
-    n_with_illegal_characters = sum(any(c not in alphabet for c in text) for _, _, text in labels)
-    if n_with_illegal_characters > 0:
-        print(f'{n_with_illegal_characters} / {len(labels)} instances have illegal characters.')
+    # n_with_illegal_characters = sum(any(c not in alphabet for c in text) for _, _, text in labels)
+    # if n_with_illegal_characters > 0:
+    #     print(f'{n_with_illegal_characters} / {len(labels)} instances have illegal characters.')
     labels = labels.copy()
     for index in itertools.cycle(range(len(labels))):
         if index == 0:
