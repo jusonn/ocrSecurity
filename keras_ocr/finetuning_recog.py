@@ -107,7 +107,7 @@ training_generator, validation_generator = [
 
 recognizer.training_model.fit_generator(
     generator=training_generator,
-    steps_per_epoch=math.ceil(len(train) / batch_size),
+    steps_per_epoch=training_steps,
     epochs=10,
     workers=0,
     callbacks=[
@@ -117,7 +117,7 @@ recognizer.training_model.fit_generator(
         tf.keras.callbacks.TensorBoard(log_dir='./logs')
     ],
     validation_data=validation_generator,
-    validation_steps=math.ceil(len(validation) / batch_size)
+    validation_steps=validation_steps
 )
 
 print('[INFO] training done')
