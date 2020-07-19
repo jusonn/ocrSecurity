@@ -7,7 +7,8 @@ import sklearn.model_selection
 PATH = 'custom_dataset'
 files = os.listdir(PATH)
 files = sorted(files)
-files = [path for path in files if path.endswith('xml')]
+files = [path for path in files if path.endswith('xml') and '특수문자' not in path]
+sp_char = [path for path in files if path.endswith('xml') and '특수문자' in path]
 
 def make_dataset(files, type='train'):
     _id = 1
@@ -40,6 +41,8 @@ def make_dataset(files, type='train'):
 train, test = sklearn.model_selection.train_test_split(
     files, train_size=0.8, random_state=42
 )
+
+train = train + sp_char
 
 os.makedirs('ocr_dataset/train/loc_gt', exist_ok=True)
 os.makedirs('ocr_dataset/train/images', exist_ok=True)

@@ -21,7 +21,8 @@ DEFAULT_BUILD_PARAMS = {
     'stn': True,
 }
 
-DEFAULT_ALPHABET = string.digits + string.ascii_lowercase + string.__all__
+# 학습할 문자 수정해야함
+DEFAULT_ALPHABET = string.digits + string.ascii_lowercase
 print('ALpha', DEFAULT_ALPHABET)
 PRETRAINED_WEIGHTS = {
     'kurapan': {

@@ -8,7 +8,7 @@ import glob
 import math
 from tensorflow.compat.v1.keras.backend import set_session
 import cv2
-import detection
+import recognition
 import datasets
 import tools
 import pipeline
@@ -27,7 +27,7 @@ config.log_device_placement = True  # to log device placement (on which device t
 sess = tf.compat.v1.Session(config=config)
 set_session(sess)
 
-def get_ocr_detector_dataset(type):
+def get_ocr_recog_dataset(type):
     training_gt_dir = f'../ocr_dataset/{type}/loc_gt'
     training_images_dir = f'../ocr_dataset/{type}/images'
     dataset = []
@@ -35,9 +35,7 @@ def get_ocr_detector_dataset(type):
         image_id = os.path.split(gt_filepath)[1].split('_')[0]
         image_path = os.path.join(training_images_dir, image_id + '.png')
         if not os.path.exists(image_path):
-            print()
             print(image_id)
-            print()
         lines = []
         with open(gt_filepath, 'r') as f:
             current_line = []
@@ -56,14 +54,16 @@ def get_ocr_detector_dataset(type):
         # Some lines only have illegible characters and if skip_illegible is True,
         # then these lines will be blank.
         lines = [line for line in lines if line]
-        dataset.append((image_path, lines, 1))
+        for line in lines:
+            dataset.append((image_path, line[0][0], line[0][1]))
     return dataset
 
-train = get_ocr_detector_dataset('train')
-validation = get_ocr_detector_dataset('test')
-# train, validation = sklearn.model_selection.train_test_split(
-#     dataset, train_size=0.8, random_state=42
-# )
+train = get_ocr_recog_dataset('train')
+validation = get_ocr_recog_dataset('test')
+
+train = [(filepath, box, word) for filepath, box, word in train]
+validation = [(filepath, box, word) for filepath, box, word in validation]
+
 augmenter = imgaug.augmenters.Sequential([
     imgaug.augmenters.Affine(
     scale=(1.0, 1.2),
@@ -73,63 +73,71 @@ augmenter = imgaug.augmenters.Sequential([
     imgaug.augmenters.Multiply((0.8, 1.2), per_channel=0.2)
 ])
 generator_kwargs = {'width': 640, 'height': 640}
-training_image_generator = datasets.get_detector_image_generator(
-    labels=train,
-    augmenter=None,
-    **generator_kwargs
-)
-validation_image_generator = datasets.get_detector_image_generator(
-    labels=validation,
-    **generator_kwargs
-)
-# import tools
-# import cv2
-# image, lines, confidence = next(training_image_generator)
-# canvas = tools.drawBoxes(image=image, boxes=lines, boxes_format='lines')
-#
-# cv2.imwrite('test.png', canvas)
-
-detector = detection.Detector()
-
 batch_size = args.batch_size
+
+augmenter = imgaug.augmenters.Sequential([
+    imgaug.augmenters.Rotate()
+])
+
+# train_labels = datasets.get_born_digital_recognizer_dataset(
+#     split='train',
+#     cache_dir='.'
+# )
+# test_labels = datasets.get_born_digital_recognizer_dataset(
+#     split='test',
+#     cache_dir='.'
+# )
+# train = [(filepath, box, word.lower()) for filepath, box, word in train_labels]
+# validation = [(filepath, box, word.lower()) for filepath, box, word in train_labels]
+
+recognizer = recognition.Recognizer()
+recognizer.compile()
+
+(training_image_gen, training_steps), (validation_image_gen, validation_steps) = [
+    (
+        datasets.get_recognizer_image_generator(
+            labels=labels,
+            height=recognizer.model.input_shape[1],
+            width=recognizer.model.input_shape[2],
+            alphabet=recognizer.alphabet,
+            augmenter=None
+        ),
+        len(labels) // batch_size
+    ) for labels, augmenter in [(train, augmenter), (validation, None)]
+]
+
+# for idx, label in enumerate(train):
+#     print(label)
+#     img = cv2.imread(label[0])
+#     cv2.imwrite(f'{idx}_{label[2]}.png', img)
+#     if idx == 10:
+#         break
+# for idx, data in enumerate(training_image_gen):
+#     cv2.imwrite(f'{idx}_{data[1]}.png', data[0])
+#     if idx == 10:
+#         break
+
 training_generator, validation_generator = [
-    detector.get_batch_generator(
+    recognizer.get_batch_generator(
         image_generator=image_generator, batch_size=batch_size
     ) for image_generator in
-    [training_image_generator, validation_image_generator]
+    [training_image_gen, validation_image_gen]
 ]
-detector.model.fit_generator(
+
+
+recognizer.training_model.fit_generator(
     generator=training_generator,
-    steps_per_epoch=math.ceil(len(train) / batch_size),
+    steps_per_epoch=training_steps,
     epochs=10,
-    workers=0,
+    workers=-1,
     callbacks=[
         tf.keras.callbacks.EarlyStopping(restore_best_weights=True, patience=5),
         tf.keras.callbacks.CSVLogger(os.path.join('log', f'{args.output}.csv')),
-        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('model', f'{args.output}.h5'))
+        tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('model', f'{args.output}.h5')),
+        # tf.keras.callbacks.TensorBoard(log_dir='./logs')
     ],
     validation_data=validation_generator,
-    validation_steps=math.ceil(len(validation) / batch_size)
+    validation_steps=validation_steps
 )
 
 print('[INFO] training done')
-
-def output(img_path, out_path):
-    img_path = img_path[0]
-    img = cv2.imread(img_path)
-    # img = cv2.resize(img, (img.shape[1] // 2, img.shape[0] // 2))
-    detector = detection.Detector()
-    detector.model.load_weights(f'model/{output}.h5')
-
-    pipe = pipeline.Pipeline(detector=detector)
-    predictions = pipe.recognize(images=[img])[0]
-    drawn = tools.drawBoxes(
-        image=img, boxes=predictions, boxes_format='predictions'
-    )
-    print(
-        'Predicted:', [text for text, box in predictions]
-    )
-    cv2.imwrite(out_path, drawn)
-
-for i, img in enumerate(validation_image_generator):
-    output(img, f'output_{i}.png')
