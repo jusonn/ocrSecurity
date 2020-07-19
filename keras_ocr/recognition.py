@@ -7,7 +7,7 @@ from tensorflow import keras
 import numpy as np
 import cv2
 
-from . import tools
+import tools
 
 DEFAULT_BUILD_PARAMS = {
     'height': 31,
@@ -21,8 +21,9 @@ DEFAULT_BUILD_PARAMS = {
     'stn': True,
 }
 
+# 학습할 문자 수정해야함
 DEFAULT_ALPHABET = string.digits + string.ascii_lowercase
-
+print('ALpha', DEFAULT_ALPHABET)
 PRETRAINED_WEIGHTS = {
     'kurapan': {
         'alphabet': DEFAULT_ALPHABET,
@@ -303,7 +304,7 @@ class Recognizer:
     Args:
         alphabet: The alphabet the model should recognize.
         build_params: A dictionary of build parameters for the model.
-            See `keras_ocr.detection.build_model` for details.
+            See `keras_ocr_legacy.detection.build_model` for details.
         weights: The starting weight configuration for the model.
         include_top: Whether to include the final classification layer in the model (set
             to False to use a custom alphabet).

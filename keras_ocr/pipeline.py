@@ -1,7 +1,7 @@
 # pylint: disable=too-few-public-methods
 import numpy as np
 
-from . import detection, recognition, tools
+import detection, recognition, tools
 
 
 class Pipeline:
@@ -58,7 +58,7 @@ class Pipeline:
                                                                  **recognition_kwargs)
         box_groups = [
             tools.adjust_boxes(boxes=boxes, boxes_format='boxes', scale=1 /
-                               scale) if scale != 1 else boxes
+                                                                        scale) if scale != 1 else boxes
             for boxes, scale in zip(box_groups, scales)
         ]
         return [

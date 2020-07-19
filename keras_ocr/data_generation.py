@@ -159,13 +159,13 @@ def get_backgrounds(cache_dir=None):
 
     Args:
         cache_dir: Where to save the dataset. By default, data will be
-            saved to ~/.keras-ocr.
+            saved to ~/.keras-ocr_old_dataset.
 
     Returns:
         A list of background filepaths.
     """
     if cache_dir is None:
-        cache_dir = os.path.expanduser(os.path.join('~', '.keras-ocr'))
+        cache_dir = os.path.expanduser(os.path.join('~', '.keras-ocr_old_dataset'))
     backgrounds_dir = os.path.join(cache_dir, 'backgrounds')
     backgrounds_zip_path = tools.download_and_verify(
         url='https://www.mediafire.com/file/l0pdx5j860kqmyr/backgrounds.zip/file',
@@ -185,7 +185,7 @@ def get_fonts(cache_dir=None,
 
     Args:
         cache_dir: Where to save the dataset. By default, data will be
-            saved to ~/.keras-ocr.
+            saved to ~/.keras-ocr_old_dataset.
         alphabet: An alphabet which we will use to exclude fonts
             that are missing relevant characters. By default, this is
             set to `string.ascii_letters + string.digits`.
@@ -197,7 +197,7 @@ def get_fonts(cache_dir=None,
         A list of font filepaths.
     """
     if cache_dir is None:
-        cache_dir = os.path.expanduser(os.path.join('~', '.keras-ocr'))
+        cache_dir = os.path.expanduser(os.path.join('~', '.keras-ocr_old_dataset'))
     fonts_zip_path = tools.download_and_verify(
         url='https://www.mediafire.com/file/6v9r9oztyri0jrc/fonts.zip/file',
         sha256='d4d90c27a9bc4bf8fff1d2c0a00cfb174c7d5d10f60ed29d5f149ef04d45b700',

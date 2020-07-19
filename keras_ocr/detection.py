@@ -28,8 +28,7 @@ import tensorflow as tf
 import efficientnet.tfkeras as efficientnet
 from tensorflow import keras
 
-from . import tools
-
+import tools
 
 def compute_input(image):
     # should be RGB order
@@ -104,25 +103,38 @@ def compute_maps(heatmap, image_height, image_width, lines):
                     [0, heatmap.shape[0]]]).astype('float32')
 
     for line in lines:
+        line, orientation = tools.fix_line(line)
         previous_link_points = None
         for [(x1, y1), (x2, y2), (x3, y3), (x4, y4)], c in line:
+            x1, y1, x2, y2, x3, y3, x4, y4 = map(lambda v: max(v, 0),
+                                                 [x1, y1, x2, y2, x3, y3, x4, y4])
             if c == ' ':
                 previous_link_points = None
                 continue
             yc = (y4 + y1 + y3 + y2) / 4
             xc = (x1 + x2 + x3 + x4) / 4
-
-            current_link_points = np.array([[(xc + (x1 + x2) / 2) / 2, (yc + (y1 + y2) / 2) / 2],
-                                            [(xc + (x3 + x4) / 2) / 2,
-                                             (yc + (y3 + y4) / 2) / 2]]) / 2
+            if orientation == 'horizontal':
+                current_link_points = np.array([[
+                    (xc + (x1 + x2) / 2) / 2, (yc + (y1 + y2) / 2) / 2
+                ], [(xc + (x3 + x4) / 2) / 2, (yc + (y3 + y4) / 2) / 2]]) / 2
+            else:
+                current_link_points = np.array([[
+                    (xc + (x1 + x4) / 2) / 2, (yc + (y1 + y4) / 2) / 2
+                ], [(xc + (x2 + x3) / 2) / 2, (yc + (y2 + y3) / 2) / 2]]) / 2
             character_points = np.array([[x1, y1], [x2, y2], [x3, y3], [x4, y4]
                                          ]).astype('float32') / 2
             # pylint: disable=unsubscriptable-object
             if previous_link_points is not None:
-                link_points = np.array([
-                    previous_link_points[0], current_link_points[0], current_link_points[1],
-                    previous_link_points[1]
-                ])
+                if orientation == 'horizontal':
+                    link_points = np.array([
+                        previous_link_points[0], current_link_points[0], current_link_points[1],
+                        previous_link_points[1]
+                    ])
+                else:
+                    link_points = np.array([
+                        previous_link_points[0], previous_link_points[1], current_link_points[1],
+                        current_link_points[0]
+                    ])
                 ML = cv2.getPerspectiveTransform(
                     src=src,
                     dst=link_points.astype('float32'),
@@ -261,6 +273,7 @@ def build_vgg_backbone(inputs):
     x = make_vgg_block(x, filters=512, n=37, pooling=False, prefix='basenet.slice4')
     x = make_vgg_block(x, filters=512, n=40, pooling=True, prefix='basenet.slice4')
     vgg = keras.models.Model(inputs=inputs, outputs=x)
+    vgg.trainable = False
     return [
         vgg.get_layer(slice_name).output for slice_name in [
             'basenet.slice1.12',
@@ -591,7 +604,7 @@ class Detector:
         else:
             weights_path = None
         self.model = build_keras_model(weights_path=weights_path, backbone_name=backbone_name)
-        self.model.compile(loss='mse', optimizer=optimizer)
+        self.model.compile(loss='mse', optimizer=tf.keras.optimizers.Adam(lr=0.0001))
 
     def get_batch_generator(self,
                             image_generator,
@@ -602,7 +615,7 @@ class Detector:
 
         Args:
             image_generator: A generator with the same signature as
-                keras_ocr.tools.get_image_generator. Optionally, a third
+                keras_ocr_legacy.tools.get_image_generator. Optionally, a third
                 entry in the tuple (beyond image and lines) can be provided
                 which will be interpreted as the sample weight.
             batch_size: The size of batches to generate.
@@ -625,6 +638,7 @@ class Detector:
                              lines=lines) for lines in line_groups
             ])
             # pylint: enable=unsubscriptable-object
+
             if len(batch[0]) == 3:
                 sample_weights = np.array([sample[2] for sample in batch])
                 yield X, y, sample_weights
@@ -654,3 +668,8 @@ class Detector:
                          link_threshold=link_threshold,
                          size_threshold=size_threshold)[0])
         return boxes
+
+if __name__=='__main__':
+    detecot = Detector()
+    # pretrained weight 사용해서 detector weakly supervised 데이터셋 로더 만들어야함.
+    # pytorch data_loader.py 참고
