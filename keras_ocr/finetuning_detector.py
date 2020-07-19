@@ -1,18 +1,12 @@
 import os
 import numpy as np
 import imgaug
-# import matplotlib.pyplot as plt
-import sklearn.model_selection
 import tensorflow as tf
 import glob
 import math
 from tensorflow.compat.v1.keras.backend import set_session
-import cv2
 import detection
 import datasets
-import tools
-import pipeline
-
 import argparse
 
 parser = argparse.ArgumentParser()
@@ -61,9 +55,7 @@ def get_ocr_detector_dataset(type):
 
 train = get_ocr_detector_dataset('train')
 validation = get_ocr_detector_dataset('test')
-# train, validation = sklearn.model_selection.train_test_split(
-#     dataset, train_size=0.8, random_state=42
-# )
+
 augmenter = imgaug.augmenters.Sequential([
     imgaug.augmenters.Affine(
     scale=(1.0, 1.2),
@@ -82,12 +74,6 @@ validation_image_generator = datasets.get_detector_image_generator(
     labels=validation,
     **generator_kwargs
 )
-# import tools
-# import cv2
-# image, lines, confidence = next(training_image_generator)
-# canvas = tools.drawBoxes(image=image, boxes=lines, boxes_format='lines')
-#
-# cv2.imwrite('test.png', canvas)
 
 detector = detection.Detector()
 
@@ -113,23 +99,3 @@ detector.model.fit_generator(
 )
 
 print('[INFO] training done')
-
-# def output(img_path, out_path):
-#     img_path = img_path[0]
-#     img = cv2.imread(img_path)
-#     # img = cv2.resize(img, (img.shape[1] // 2, img.shape[0] // 2))
-#     detector = detection.Detector()
-#     detector.model.load_weights(f'model/{output}.h5')
-#
-#     pipe = pipeline.Pipeline(detector=detector)
-#     predictions = pipe.recognize(images=[img])[0]
-#     drawn = tools.drawBoxes(
-#         image=img, boxes=predictions, boxes_format='predictions'
-#     )
-#     print(
-#         'Predicted:', [text for text, box in predictions]
-#     )
-#     cv2.imwrite(out_path, drawn)
-#
-# for i, img in enumerate(validation_image_generator):
-#     output(img, f'output_{i}.png')
